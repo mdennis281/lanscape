@@ -170,6 +170,14 @@ pr-analysis/
 node_modules
 setup_tauri
 
-# Dispatch per-task git worktrees (.dispatch/project.yaml `worktreeRoot`).
-# Resolves inside the repo, so without this every worktree is untracked noise.
+# Agent tooling — deliberately NOT tracked. Dispatch config for this project
+# lives in the install (configLocation: external), and Claude Code's local
+# config is per-developer. Author project guidance there, not here. The one
+# exception is .github/instructions/review.instructions.md, which the PR
+# reviewer bot reads out of the repo.
+.claude/
+.dispatch/
+
+# Dispatch per-task git worktrees (its `worktreeRoot`). Resolves inside the
+# repo, so without this every worktree is untracked noise.
 .worktrees/

@@ -105,6 +105,34 @@ what installed users see), rename `lanscape/local/.env` out of the way.
 | `LANSCAPE_OPEN_BROWSER`   | `true`/`false` — auto-open a PWA window when Vite is ready.        |
 | `LANSCAPE_AUTO_RELOAD`    | `true`/`false` — wrap the backend with `watchdog` for auto-restart. |
 
+## Repo layout
+
+| Path | What lives there |
+| --- | --- |
+| `lanscape/` | The library. New public classes/features **must** be exported from `lanscape/__init__.py`. |
+| `tests/` | The pytest suite. Integration tests are marked `integration` and excluded from a plain `pytest` run. |
+| `scripts/` | Release and PR helper scripts (`tasks/`) and CI utilities (`ci/`). |
+| `docs/library/` | Usage docs for library and WebSocket consumers. Flattened and pushed to the GitHub wiki by `.github/workflows/chore-wiki-sync.yml`. |
+| `docker/` | `Dockerfile`, `Dockerfile.arm64`, `docker-entrypoint.sh`. |
+| `.github/` | Actions workflows, issue/PR templates, and the PR reviewer instructions. |
+
+## Code conventions
+
+- Pydantic models for structured data. If a function has "too many args", that
+  is usually a missing model rather than a reason to disable the lint rule.
+- `requests` for HTTP calls.
+- Thread pools over `asyncio` where either would work.
+- Python 3.10+ syntax, with type hints on every function and method.
+
+## Before you open a PR
+
+1. Tests added or updated under `tests/` for the new or changed behavior.
+2. New public features exported from `lanscape/__init__.py`.
+3. `python -m pylint scripts/ lanscape/ tests/` scores 10/10 — CI requires it.
+4. `python -m pytest tests/ -n auto --dist=loadscope -v` passes.
+5. `docs/library/` updated if schemas, models, features or the WebSocket
+   protocol changed — it is published to the wiki on merge.
+
 ## Adding or changing dependencies
 - Add them to the appropriate section of `pyproject.toml` (`dependencies` for runtime, `project.optional-dependencies.dev` for tooling/tests).
 - Never add a `requirements.txt`; CI installs from `pyproject.toml` only.
@@ -114,6 +142,9 @@ what installed users see), rename `lanscape/local/.env` out of the way.
 2. Make changes with type hints and tests where relevant.
 3. Run lint and tests locally.
 4. Open a PR; CI will run pytest and pylint across supported Python versions.
-5. Ensure PR includes version number, ie. "<major>.<minor>.<patch> - <PR title>"
+5. Title the PR `<major>.<minor>.<patch> - <description>`. The version is not
+   decoration: merging to `main` tags that version, publishes it to PyPI and
+   pushes the Docker images, so pick it to match the size of the change. CI
+   rejects a version that is not higher than the latest release.
 
 Thanks for contributing! 💡
