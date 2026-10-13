@@ -190,13 +190,13 @@ Each stage type has a dedicated Pydantic config model. Pass the model's fields a
 
 ## Subnet Size Limits
 
-Each IPv4 enumeration stage has a `MAX_SUBNET_SIZE` class constant that caps how large a subnet it will accept. If a `PipelineConfig` is passed to `build_stages()` with a subnet that exceeds a stage's limit, a `ValueError` is raised before any IPs are allocated.
+Each address-enumerating stage has a `MAX_SUBNET_SIZE` class constant that caps how many target addresses it will accept. The count covers every target format — CIDRs, ranges, single addresses and comma-separated lists. If a `PipelineConfig` is passed to `build_stages()` with a target that exceeds a stage's limit, a `ValueError` is raised before any IPs are allocated.
 
 | Stage | `MAX_SUBNET_SIZE` |
 |-------|-------------------|
 | `ICMP_DISCOVERY` | 25,000 IPs |
 | `ARP_DISCOVERY` | 25,000 IPs |
-| `POKE_ARP_DISCOVERY` | 64,000 IPs |
+| `POKE_ARP_DISCOVERY` | 128,000 IPs |
 | `ICMP_ARP_DISCOVERY` | 25,000 IPs |
 | `IPV6_NDP_DISCOVERY` | No limit (passive, not IP-enumeration) |
 | `IPV6_MDNS_DISCOVERY` | No limit (passive multicast) |

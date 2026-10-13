@@ -209,7 +209,7 @@ from lanscape import ScanConfig, ScanType
 config = ScanConfig(
     subnet="fd00::/120",
     port_list="medium",
-    lookup_type=[ScanType.ICMP_THEN_ARP],  # ARP cache step auto-skipped for IPv6
+    lookup_type=[ScanType.ICMP_THEN_ARP],  # pings via ICMPv6; neighbor lookup uses the NDP cache
 )
 
 # Mixed IPv4 + IPv6 comma-separated targets
