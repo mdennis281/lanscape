@@ -11,7 +11,9 @@ import pytest
 from lanscape.core.service_scan import (
     scan_service,
     get_port_probes,
+    render_probe,
     _try_probe,
+    _read_response,
     _multi_probe_generic,
     _identify_service,
     _match_binary_signature,
@@ -812,3 +814,128 @@ class TestServiceScanErrorPropagation:
         """ServiceScanResult.error defaults to None."""
         result = ServiceScanResult(service="Unknown")
         assert result.error is None
+
+
+class TestSplitResponses:
+    """Responses that arrive in several TCP segments are read in full."""
+
+    NGINX_HEADERS = (
+        b"HTTP/1.1 400 Bad Request\r\nServer: nginx\r\n"
+        b"Content-Type: text/html\r\nConnection: close\r\n\r\n"
+    )
+    NGINX_BODY = (
+        b"<html><head><title>400 The plain HTTP request was sent to HTTPS port"
+        b"</title></head></html>"
+    )
+    GET = b"GET / HTTP/1.0\r\n\r\n"
+
+    @staticmethod
+    async def _serve(chunks, delay: float, close: bool = True):
+        """Start a local server that writes *chunks* *delay* seconds apart."""
+        async def handler(reader, writer):
+            await reader.read(1024)
+            for i, chunk in enumerate(chunks):
+                if i:
+                    await asyncio.sleep(delay)
+                writer.write(chunk)
+                await writer.drain()
+            if close:
+                writer.close()
+            else:
+                await asyncio.sleep(5)
+        server = await asyncio.start_server(handler, "127.0.0.1", 0)
+        return server, server.sockets[0].getsockname()[1]
+
+    def test_body_in_second_segment_is_read(self):
+        """Headers and body sent separately are both returned."""
+        async def run_test():
+            server, port = await self._serve([self.NGINX_HEADERS, self.NGINX_BODY], 0.05)
+            async with server:
+                _, decoded = await _try_probe("127.0.0.1", port, self.GET, timeout=2)
+            assert "plain http request was sent to https" in decoded.lower()
+
+        asyncio.run(run_test())
+
+    def test_split_plaintext_error_escalates_to_tls(self):
+        """The body-only HTTPS indicator now triggers TLS escalation."""
+        async def run_test():
+            server, port = await self._serve([self.NGINX_HEADERS, self.NGINX_BODY], 0.05)
+            async with server:
+                raw, decoded = await _try_probe("127.0.0.1", port, self.GET, timeout=2)
+            with patch(
+                'lanscape.core.service_scan.probes._try_ssl_probe',
+                new_callable=AsyncMock, return_value=(None, None),
+            ):
+                *_, is_tls = await _handle_tls_escalation(
+                    "127.0.0.1", port, raw, decoded, None, 2.0,
+                )
+            assert is_tls is True
+
+        asyncio.run(run_test())
+
+    def test_open_connection_stops_after_idle_gap(self):
+        """A server that sends a banner and keeps the socket open does not stall the read."""
+        async def run_test():
+            server, port = await self._serve([b"SSH-2.0-OpenSSH_9.6\r\n"], 0, close=False)
+            async with server:
+                loop = asyncio.get_running_loop()
+                start = loop.time()
+                _, decoded = await _try_probe("127.0.0.1", port, b"\r\n", timeout=4)
+                elapsed = loop.time() - start
+            assert decoded.startswith("SSH-2.0")
+            assert elapsed < 1.5
+
+        asyncio.run(run_test())
+
+    def test_read_response_respects_read_len(self):
+        """_read_response never returns more than read_len bytes."""
+        async def run_test():
+            reader = asyncio.StreamReader()
+            reader.feed_data(b"x" * 50)
+            reader.feed_data(b"y" * 50)
+            reader.feed_eof()
+            data = await _read_response(reader, 64, 1.0)
+            assert len(data) == 64
+
+        asyncio.run(run_test())
+
+
+class TestRenderProbe:
+    """The {host_hdr} placeholder is filled with the target address."""
+
+    def test_ipv4_str(self):
+        """IPv4 address is substituted as-is."""
+        out = render_probe("HEAD / HTTP/1.0\r\nHost: {host_hdr}\r\n\r\n", "10.0.0.5")
+        assert out == "HEAD / HTTP/1.0\r\nHost: 10.0.0.5\r\n\r\n"
+
+    def test_ipv6_is_bracketed(self):
+        """IPv6 literal is bracketed for the Host header."""
+        out = render_probe("Host: {host_hdr}", "fd00::10")
+        assert out == "Host: [fd00::10]"
+
+    def test_bytes_payload(self):
+        """Bytes payloads are substituted too."""
+        assert render_probe(b"Host: {host_hdr}", "10.0.0.5") == b"Host: 10.0.0.5"
+
+    def test_none_and_plain_payloads_unchanged(self):
+        """Banner-grab (None) and placeholder-free payloads pass through."""
+        assert render_probe(None, "10.0.0.5") is None
+        assert render_probe(b"QUIT\r\n", "10.0.0.5") == b"QUIT\r\n"
+
+    def test_no_probe_is_sent_with_a_raw_placeholder(self, aggressive_config):
+        """Every probe _multi_probe_generic sends has the placeholder filled."""
+        sent = []
+
+        async def fake_probe(_ip, _port, payload=None, **_kwargs):
+            sent.append(payload)
+            return (None, None)
+
+        async def run_test():
+            with patch('lanscape.core.service_scan.probes._try_probe', side_effect=fake_probe):
+                await _multi_probe_generic("10.0.0.5", 443, aggressive_config)
+
+        asyncio.run(run_test())
+        assert sent
+        for payload in sent:
+            text = payload.decode('latin-1') if isinstance(payload, bytes) else str(payload)
+            assert "{host_hdr}" not in text

@@ -26,11 +26,13 @@ from lanscape.core.service_scan.identification import (  # noqa: F401
 )
 from lanscape.core.service_scan.probes import (  # noqa: F401
     _try_probe,
+    _read_response,
     _try_ssl_probe,
     _detect_tls_from_bytes,
     _handle_tls_escalation,
     _multi_probe_generic,
     _format_request,
     get_port_probes,
+    render_probe,
     HTTPS_PLAINTEXT_INDICATORS,
 )
