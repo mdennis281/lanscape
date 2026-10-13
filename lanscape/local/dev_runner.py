@@ -24,6 +24,7 @@ import subprocess
 import sys
 import threading
 import time
+import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -228,10 +229,8 @@ def _open_browser_when_ready(ui_port: int, ws_port: int, timeout: float = 60.0) 
                 try:
                     open_pwa(url)
                 except ChromiumNotFoundError:
-                    import webbrowser
                     webbrowser.open(url)
             except ImportError:
-                import webbrowser
                 webbrowser.open(url)
             return
         time.sleep(0.25)
