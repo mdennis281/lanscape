@@ -27,7 +27,7 @@ function Invoke-Cleanup {
 try {
     # Build
     Write-Host "-- Building service containers --"
-    $buildArgs = @("-f", $ComposeFile, "build")
+    $buildArgs = @("-f", $ComposeFile, "--profile", "scanner", "build")
     if ($Build) { $buildArgs += @("--no-cache", "--pull") }
     docker compose @buildArgs
     if ($LASTEXITCODE -ne 0) { throw "Build failed" }

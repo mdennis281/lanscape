@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "── Building service containers ──"
-docker compose -f "$COMPOSE_FILE" build $BUILD_FLAG
+docker compose -f "$COMPOSE_FILE" --profile scanner build $BUILD_FLAG
 
 echo ""
 echo "── Starting service containers ──"
