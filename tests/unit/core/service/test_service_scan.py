@@ -839,10 +839,12 @@ class TestSplitResponses:
                     await asyncio.sleep(delay)
                 writer.write(chunk)
                 await writer.drain()
-            if close:
-                writer.close()
-            else:
-                await asyncio.sleep(5)
+            if not close:
+                # Hold the socket open until the client hangs up. Closing our
+                # side afterwards matters: on 3.12 Server.wait_closed() blocks
+                # until every connection is closed.
+                await reader.read()
+            writer.close()
         server = await asyncio.start_server(handler, "127.0.0.1", 0)
         return server, server.sockets[0].getsockname()[1]
 
