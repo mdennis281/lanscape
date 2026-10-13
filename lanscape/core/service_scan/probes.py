@@ -25,6 +25,9 @@ HTTPS_PLAINTEXT_INDICATORS = [
     "client sent an http request to an https server",
 ]
 
+# Idle gap (seconds) that ends a response once its first chunk has arrived.
+FOLLOWUP_READ_TIMEOUT = 0.3
+
 
 async def _try_probe(  # pylint: disable=too-many-locals,too-many-arguments
     ip: str,
@@ -53,10 +56,7 @@ async def _try_probe(  # pylint: disable=too-many-locals,too-many-arguments
                     "utf-8", errors="ignore")
                 writer.write(data)
                 await writer.drain()
-            try:
-                response = await asyncio.wait_for(reader.read(read_len), timeout=timeout / 2)
-            except asyncio.TimeoutError:
-                response = b""
+            response = await _read_response(reader, read_len, timeout / 2)
             resp_str = response.decode("utf-8", errors="replace") if response else ""
             return (response if response else None, resp_str if resp_str else None)
         finally:
@@ -76,6 +76,37 @@ async def _try_probe(  # pylint: disable=too-many-locals,too-many-arguments
             return (None, None)
         log.debug(f"Probe error on {ip}:{port} - {repr(e)}")
         return (None, None)
+
+
+async def _read_response(
+    reader: asyncio.StreamReader,
+    read_len: int,
+    first_timeout: float,
+) -> bytes:
+    """Read up to *read_len* bytes of a probe response.
+
+    Waits up to *first_timeout* for the first chunk, then keeps reading
+    until EOF, *read_len*, or a short idle gap. Servers often send headers
+    and body in separate segments (nginx's "plain HTTP request was sent to
+    HTTPS port" lives only in the body), so a single read misses it.
+    """
+    try:
+        response = await asyncio.wait_for(reader.read(read_len), timeout=first_timeout)
+    except asyncio.TimeoutError:
+        return b""
+
+    while response and len(response) < read_len:
+        try:
+            chunk = await asyncio.wait_for(
+                reader.read(read_len - len(response)),
+                timeout=min(FOLLOWUP_READ_TIMEOUT, first_timeout),
+            )
+        except asyncio.TimeoutError:
+            break
+        if not chunk:
+            break
+        response += chunk
+    return response
 
 
 def _detect_tls_from_bytes(data: bytes) -> bool:
@@ -154,6 +185,24 @@ def _format_request(
     return str(value)
 
 
+def render_probe(
+    payload: Optional[Union[str, bytes]],
+    ip: str,
+) -> Optional[Union[str, bytes]]:
+    """Substitute the ``{host_hdr}`` placeholder in *payload* with *ip*.
+
+    IPv6 literals are bracketed, as an HTTP ``Host`` header requires.
+    Without this the literal placeholder is sent and servers reject the
+    request with a generic 400 instead of a meaningful response.
+    """
+    if payload is None:
+        return None
+    host = f"[{ip}]" if ':' in ip else ip
+    if isinstance(payload, (bytes, bytearray)):
+        return bytes(payload).replace(b"{host_hdr}", host.encode("ascii"))
+    return payload.replace("{host_hdr}", host)
+
+
 def get_port_probes(port: int, strategy: ServiceScanStrategy):
     """Return a list of probe payloads based on the port and strategy."""
     probes = [
@@ -212,7 +261,7 @@ async def _multi_probe_generic(  # pylint: disable=too-many-locals,too-many-bran
             return (payload, raw_bytes, decoded_str)
 
     tasks = [
-        asyncio.create_task(limited_probe(p, cfg.timeout))
+        asyncio.create_task(limited_probe(render_probe(p, ip), cfg.timeout))
         for p in probes
     ]
 

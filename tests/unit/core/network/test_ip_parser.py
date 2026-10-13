@@ -8,6 +8,7 @@ from lanscape.core.ip_parser import (
     get_address_count,
     ip_range_to_list,
     parse_ip_input,
+    parse_ip_networks,
     parse_ip_range,
 )
 
@@ -218,3 +219,63 @@ class TestIpRangeToList:
         ip = ipaddress.IPv4Address("1.2.3.4")
         result = list(ip_range_to_list(ip, ip))
         assert result == [ip]
+
+
+# ---------------------------------------------------------------------------
+# Lists and ranges — networks and address counts without enumerating
+# ---------------------------------------------------------------------------
+
+class TestParseIpNetworks:
+    """parse_ip_networks covers every target format without enumerating hosts."""
+
+    def test_cidr(self):
+        """CIDR entry becomes its network."""
+        assert parse_ip_networks("10.0.0.0/24") == [ipaddress.ip_network("10.0.0.0/24")]
+
+    def test_single_addresses_become_host_networks(self):
+        """Single IPv4/IPv6 addresses become /32 and /128 networks."""
+        assert parse_ip_networks("10.0.0.5, fd00::1") == [
+            ipaddress.ip_network("10.0.0.5/32"),
+            ipaddress.ip_network("fd00::1/128"),
+        ]
+
+    def test_range_is_summarised(self):
+        """A range is covered exactly by its summarised networks."""
+        nets = parse_ip_networks("10.0.0.1-10.0.0.6")
+        covered = [ip for n in nets for ip in n]
+        assert covered == parse_ip_input("10.0.0.1-10.0.0.6")
+
+    def test_ipv6_shorthand_range(self):
+        """IPv6 shorthand range is summarised."""
+        nets = parse_ip_networks("fd00::1-ff")
+        assert sum(n.num_addresses for n in nets) == 0xff
+
+    def test_huge_range_does_not_enumerate(self):
+        """A /64-sized range returns promptly as a handful of networks."""
+        nets = parse_ip_networks("fd00::-fd00::ffff:ffff:ffff:ffff")
+        assert nets == [ipaddress.ip_network("fd00::/64")]
+
+
+class TestGetAddressCountLists:
+    """get_address_count handles ranges and comma-separated lists."""
+
+    def test_range(self):
+        """Inclusive range count."""
+        assert get_address_count("192.168.1.1-192.168.1.10") == 10
+
+    def test_shorthand_range(self):
+        """Shorthand range count."""
+        assert get_address_count("192.168.1.1-10") == 10
+
+    def test_single_address(self):
+        """Single address counts as one."""
+        assert get_address_count("fd00::1") == 1
+
+    def test_mixed_list(self):
+        """Comma list sums each entry, honouring CIDR host rules."""
+        target = "10.0.0.0/30, 10.0.1.5, fd00::1/128, fd00::10-fd00::13"
+        assert get_address_count(target) == 2 + 1 + 1 + 4
+
+    def test_invalid_entry_returns_zero(self):
+        """Any invalid entry makes the whole target invalid."""
+        assert get_address_count("10.0.0.1, not-an-ip") == 0

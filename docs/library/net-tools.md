@@ -112,25 +112,28 @@ config = ScanConfig(
 
 ### `is_ipv6_subnet(subnet: str) -> bool`
 
-Check whether the given subnet string represents an IPv6 network.
+Check whether every entry in the target string is IPv6. Accepts any target format — CIDR, range, single address, or comma-separated list. A mixed IPv4/IPv6 list is not IPv6.
 
 ```python
-net_tools.is_ipv6_subnet("192.168.1.0/24")  # False
-net_tools.is_ipv6_subnet("fd00::/64")        # True
+net_tools.is_ipv6_subnet("192.168.1.0/24")            # False
+net_tools.is_ipv6_subnet("fd00::/64")                 # True
+net_tools.is_ipv6_subnet("fd00::1-fd00::10")          # True
+net_tools.is_ipv6_subnet("192.168.1.1,fd00::1")       # False (mixed)
 ```
 
 ### `is_local_subnet(subnet: str) -> bool`
 
-Check whether the subnet overlaps with any local network interface on the machine.
+Check whether any part of the target overlaps with a local network interface on the machine. Accepts CIDRs, ranges, single addresses and comma-separated lists.
 
 ```python
-net_tools.is_local_subnet("192.168.1.0/24")  # True (if on that LAN)
-net_tools.is_local_subnet("10.99.0.0/16")    # False (no local interface)
+net_tools.is_local_subnet("192.168.1.0/24")           # True (if on that LAN)
+net_tools.is_local_subnet("192.168.1.10-192.168.1.20") # True (if on that LAN)
+net_tools.is_local_subnet("10.99.0.0/16")             # False (no local interface)
 ```
 
 ### `matching_interface(subnet: str) -> str | None`
 
-Return the name of the local interface whose network overlaps the given subnet, or `None` if no match.
+Return the name of the first local interface whose network overlaps any part of the target, or `None` if no match. Accepts the same target formats as `is_local_subnet()`.
 
 ```python
 net_tools.matching_interface("192.168.1.0/24")  # "Wi-Fi"

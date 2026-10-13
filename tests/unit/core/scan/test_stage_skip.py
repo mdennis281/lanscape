@@ -139,7 +139,7 @@ class TestStageEvalContext:
 # ---------------------------------------------------------------------------
 
 class TestICMPDiscoveryGuard:
-    """ICMP discovery skips on IPv6."""
+    """ICMP discovery runs on any subnet — ICMPv6 echo works like ICMP."""
 
     def _make(self) -> ICMPDiscoveryStage:
         return ICMPDiscoveryStage(ICMPDiscoveryStageConfig(), [])
@@ -152,11 +152,9 @@ class TestICMPDiscoveryGuard:
         """IPv4 remote is allowed."""
         assert self._make().can_execute(_ipv4_remote_ctx()) is None
 
-    def test_skips_ipv6(self):
-        """IPv6 subnet is skipped."""
-        reason = self._make().can_execute(_ipv6_ctx())
-        assert reason is not None
-        assert "IPv4-only" in reason
+    def test_allows_ipv6(self):
+        """IPv6 subnet is allowed."""
+        assert self._make().can_execute(_ipv6_ctx()) is None
 
 
 class TestARPDiscoveryGuard:
@@ -208,7 +206,7 @@ class TestPokeARPDiscoveryGuard:
 
 
 class TestICMPARPDiscoveryGuard:
-    """ICMP+ARP discovery skips on IPv6 or remote."""
+    """ICMP+ARP discovery skips only on remote subnets (the cache is NDP for IPv6)."""
 
     def _make(self) -> ICMPARPDiscoveryStage:
         return ICMPARPDiscoveryStage(ICMPARPDiscoveryStageConfig(), [])
@@ -217,9 +215,16 @@ class TestICMPARPDiscoveryGuard:
         """IPv4 local is allowed."""
         assert self._make().can_execute(_ipv4_local_ctx()) is None
 
-    def test_skips_ipv6(self):
-        """IPv6 subnet is skipped."""
-        assert self._make().can_execute(_ipv6_ctx()) is not None
+    def test_allows_ipv6_local(self):
+        """Local IPv6 subnet is allowed."""
+        assert self._make().can_execute(_ipv6_ctx()) is None
+
+    def test_skips_ipv6_remote(self):
+        """Remote IPv6 subnet is skipped."""
+        ctx = _ipv6_ctx().model_copy(update={"is_local": False, "matching_interface": None})
+        reason = self._make().can_execute(ctx)
+        assert reason is not None
+        assert "local" in reason
 
     def test_skips_remote(self):
         """Remote subnet is skipped."""

@@ -1,4 +1,4 @@
-"""IPv4 device discovery stages."""
+"""Address-enumerating device discovery stages (ICMP, ARP, Poke+ARP)."""
 
 from typing import List, Optional
 
@@ -89,7 +89,7 @@ def _build_retry_infra(
 
 
 class ICMPDiscoveryStage(ScanStageMixin):
-    """Discover devices via ICMP echo requests (ping)."""
+    """Discover devices via ICMP / ICMPv6 echo requests (ping)."""
 
     stage_type = StageType.ICMP_DISCOVERY
     stage_name = "ICMP Discovery"
@@ -106,11 +106,6 @@ class ICMPDiscoveryStage(ScanStageMixin):
         self.cfg = cfg
         self.subnet_ips = subnet_ips
         self.resilience = resilience or ResilienceConfig()
-
-    def can_execute(self, eval_ctx: StageEvalContext) -> Optional[str]:
-        if eval_ctx.is_ipv6:
-            return "ICMP discovery is IPv4-only"
-        return None
 
     def execute(self, context: ScanContext) -> None:
         self.total = len(self.subnet_ips)
@@ -266,7 +261,7 @@ class PokeARPDiscoveryStage(ScanStageMixin):
 
 
 class ICMPARPDiscoveryStage(ScanStageMixin):
-    """Discover devices by ICMP ping then reading the OS ARP cache."""
+    """Discover devices by ICMP ping then reading the OS ARP / NDP cache."""
 
     stage_type = StageType.ICMP_ARP_DISCOVERY
     stage_name = "ICMP → ARP Discovery"
@@ -285,10 +280,8 @@ class ICMPARPDiscoveryStage(ScanStageMixin):
         self.resilience = resilience or ResilienceConfig()
 
     def can_execute(self, eval_ctx: StageEvalContext) -> Optional[str]:
-        if eval_ctx.is_ipv6:
-            return "ICMP+ARP discovery is IPv4-only"
         if not eval_ctx.is_local:
-            return "ICMP+ARP requires a local IPv4 subnet"
+            return "ICMP+ARP requires a local subnet"
         return None
 
     def execute(self, context: ScanContext) -> None:

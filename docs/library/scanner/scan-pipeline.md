@@ -44,8 +44,8 @@ A Pydantic model that captures environment facts about the target subnet. The pi
 | Field | Type | Description |
 |-------|------|-------------|
 | `subnet` | `str` | Target subnet string |
-| `is_ipv6` | `bool` | Whether the target subnet is IPv6 |
-| `is_local` | `bool` | Whether the target subnet overlaps a local interface |
+| `is_ipv6` | `bool` | Whether every target entry is IPv6 (a mixed IPv4/IPv6 list is `False`) |
+| `is_local` | `bool` | Whether any part of the target (CIDR, range, address or list) overlaps a local interface |
 | `matching_interface` | `str \| None` | Name of the overlapping local interface (or `None`) |
 | `arp_supported` | `bool` | Whether the system supports ARP |
 | `os_platform` | `str` | Normalised OS: `"windows"`, `"linux"`, or `"darwin"` |
@@ -250,10 +250,10 @@ Each built-in discovery stage overrides `can_execute()` to skip itself when the 
 
 | Stage | Skips when | Reason |
 |-------|-----------|--------|
-| `ICMPDiscoveryStage` | IPv6 subnet | ICMP discovery is IPv4-only |
+| `ICMPDiscoveryStage` | *(never skips)* | Pings IPv4 and IPv6 targets (ICMPv6 echo for IPv6) |
 | `ARPDiscoveryStage` | IPv6 subnet, non-local subnet, or ARP unsupported | ARP requires local IPv4 + elevated privileges |
 | `PokeARPDiscoveryStage` | IPv6 subnet or non-local subnet | Poke+ARP requires local IPv4 |
-| `ICMPARPDiscoveryStage` | IPv6 subnet or non-local subnet | ICMP+ARP requires local IPv4 |
+| `ICMPARPDiscoveryStage` | Non-local subnet | ICMP+ARP requires a local subnet (IPv6 reads the NDP neighbor table instead of the ARP cache) |
 | `IPv6NDPDiscoveryStage` | IPv4 subnet | NDP discovery is IPv6-only |
 | `IPv6MDNSDiscoveryStage` | IPv4 subnet | mDNS discovery is IPv6-only |
 | `PortScanStage` | *(never skips)* | Runs on any subnet type |

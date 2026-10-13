@@ -53,7 +53,10 @@ jobs:
       - name: Build and start services
         working-directory: tests/integration
         run: |
-          docker compose build
+          # Pre-create results/ so it is owned by the runner, not by the
+          # container's root user — the log-dump step writes into it later.
+          mkdir -p results
+          docker compose --profile scanner build
           docker compose up -d
           echo "Waiting for services to be healthy..."
           sleep 15

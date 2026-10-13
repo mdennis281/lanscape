@@ -151,7 +151,7 @@ config = ScanConfig(
 
 | Feature | IPv6 Behavior |
 |---------|---------------|
-| ICMP ping | Uses `ping6` (Linux/macOS) or `ping -6` (Windows) |
+| ICMP ping | Uses `ping6` (Linux/macOS) or `ping -6` (Windows); ICMP discovery stages run on IPv6 targets |
 | ARP discovery | Skipped — ARP is IPv4-only. IPv6 uses NDP (Neighbor Discovery Protocol). |
 | TCP poke | Uses `AF_INET6` sockets |
 | Port scanning | Uses `AF_INET6` sockets |

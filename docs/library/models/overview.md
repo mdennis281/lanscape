@@ -155,7 +155,7 @@ Progress snapshot for a single pipeline stage. Available in `ScanMetadata.stages
 | `completed` | `int` | `0` | Completed work items |
 | `finished` | `bool` | `False` | Whether the stage has finished executing |
 | `skipped` | `bool` | `False` | Whether the stage was skipped by a guard |
-| `skip_reason` | `str \| None` | `None` | Reason the stage was skipped (e.g. `"ICMP discovery is IPv4-only"`) |
+| `skip_reason` | `str \| None` | `None` | Reason the stage was skipped (e.g. `"ICMP+ARP requires a local subnet"`) |
 
 ```python
 meta = scan.results.get_metadata()
@@ -259,8 +259,8 @@ Environment context used by stage guards to decide whether a stage should run or
 | Field | Type | Description |
 |-------|------|-------------|
 | `subnet` | `str` | Target subnet string |
-| `is_ipv6` | `bool` | Whether the target subnet is IPv6 |
-| `is_local` | `bool` | Whether the target subnet overlaps a local interface |
+| `is_ipv6` | `bool` | Whether every target entry is IPv6 (a mixed IPv4/IPv6 list is `False`) |
+| `is_local` | `bool` | Whether any part of the target (CIDR, range, address or list) overlaps a local interface |
 | `matching_interface` | `str \| None` | Name of the overlapping local interface |
 | `arp_supported` | `bool` | Whether the system supports ARP |
 | `os_platform` | `str` | Normalised OS: `"windows"`, `"linux"`, or `"darwin"` |
