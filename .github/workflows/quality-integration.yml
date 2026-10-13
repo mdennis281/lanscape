@@ -78,25 +78,6 @@ jobs:
               echo "$unhealthy"
           fi
 
-      - name: DIAG IPv6
-        working-directory: tests/integration
-        run: |
-          docker version
-          sysctl net.ipv6.conf.all.disable_ipv6 net.ipv6.conf.default.disable_ipv6 || true
-          docker network inspect integration_testnet || true
-          docker compose run --rm --entrypoint "" scanner sh -c '
-            ip -6 addr; ip -6 route; sysctl net.ipv6.conf.all.disable_ipv6 net.ipv6.conf.eth0.disable_ipv6
-            ping -6 -c2 -W2 fd00:dead:beef::10; ping -c1 -W2 172.30.0.10
-            python -c "
-          from icmplib import ping
-          for p in (True, False):
-              try:
-                  r = ping(\"fd00:dead:beef::10\", count=1, timeout=1, privileged=p); print(\"icmplib\", p, r)
-              except Exception as e: print(\"icmplib\", p, repr(e))
-          "
-            python -m pytest tests/integration/test_ipv6.py -o addopts= -o log_cli=true --log-cli-level=DEBUG -x 2>&1 | grep -iE "fd00|ipv6|error|exception|alive|stage" | head -150
-          ' || true
-
       - name: Run integration tests
         working-directory: tests/integration
         env:

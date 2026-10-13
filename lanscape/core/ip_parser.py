@@ -1,6 +1,6 @@
 """IP address parsing utilities (single, CIDR, ranges) — IPv4 & IPv6."""
 import ipaddress
-from typing import List, Union
+from typing import List, Tuple, Union
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
@@ -57,30 +57,75 @@ def parse_ip_input(ip_input: str) -> List[IPAddress]:
     return ip_ranges
 
 
-def get_address_count(subnet: str) -> int:
+def parse_ip_networks(ip_input: str) -> List[IPNetwork]:
     """
-    Get the number of scannable host addresses in an IP subnet (IPv4 or IPv6).
+    Parse a target string into the networks it covers, without enumerating hosts.
 
-    For IPv4, this excludes the network and broadcast addresses (except for /31 and /32).
-    For IPv6, this excludes only the network address (IPv6 has no broadcast).
+    Accepts every format :func:`parse_ip_input` does. CIDR entries become their
+    network, ranges are summarised into the minimal covering networks, and single
+    addresses become a host network (/32 or /128).
 
     Args:
-        subnet (str): Subnet in CIDR notation
+        ip_input (str): String containing IP addresses in various formats
 
     Returns:
-        int: Number of scannable host addresses in the subnet, or 0 if invalid
+        list: IPv4Network / IPv6Network objects, one or more per entry
+
+    Raises:
+        ValueError: If any entry cannot be parsed
+    """
+    networks: List[IPNetwork] = []
+    for entry in (e.strip() for e in ip_input.split(',')):
+        if '/' in entry:
+            networks.append(ipaddress.ip_network(entry, strict=False))
+        elif '-' in entry:
+            start, end = _parse_range_bounds(entry)
+            networks.extend(ipaddress.summarize_address_range(start, end))
+        else:
+            networks.append(ipaddress.ip_network(entry))
+    return networks
+
+
+def get_address_count(subnet: str) -> int:
+    """
+    Get the number of scannable host addresses in a target (IPv4 or IPv6).
+
+    Accepts CIDR, ranges, single addresses and comma-separated lists of them.
+    For an IPv4 CIDR this excludes the network and broadcast addresses (except
+    for /31 and /32); for an IPv6 CIDR it excludes only the network address.
+    Ranges and single addresses count every address they name.
+
+    Args:
+        subnet (str): Target string
+
+    Returns:
+        int: Number of scannable host addresses, or 0 if invalid
     """
     try:
-        net = ipaddress.ip_network(subnet, strict=False)
-        if isinstance(net, ipaddress.IPv6Network):
-            # IPv6: exclude network address only (no broadcast)
-            return max(net.num_addresses - 1, 1)
-        # IPv4: /32 = 1 host, /31 = 2 hosts, else num_addresses - 2
-        if net.prefixlen >= 31:
-            return net.num_addresses
-        return net.num_addresses - 2
+        total = 0
+        for entry in (e.strip() for e in subnet.split(',')):
+            if '/' in entry:
+                total += _cidr_host_count(ipaddress.ip_network(entry, strict=False))
+            elif '-' in entry:
+                start, end = _parse_range_bounds(entry)
+                total += max(int(end) - int(start) + 1, 0)
+            else:
+                ipaddress.ip_address(entry)
+                total += 1
+        return total
     except (ValueError, TypeError):
         return 0
+
+
+def _cidr_host_count(net: IPNetwork) -> int:
+    """Return the scannable host count of a single CIDR network."""
+    if isinstance(net, ipaddress.IPv6Network):
+        # IPv6: exclude network address only (no broadcast)
+        return max(net.num_addresses - 1, 1)
+    # IPv4: /32 = 1 host, /31 = 2 hosts, else num_addresses - 2
+    if net.prefixlen >= 31:
+        return net.num_addresses
+    return net.num_addresses - 2
 
 
 def parse_ip_range(entry: str) -> List[IPAddress]:
@@ -101,15 +146,19 @@ def parse_ip_range(entry: str) -> List[IPAddress]:
     Returns:
         list: List of IPv4Address / IPv6Address objects in the range (inclusive)
     """
-    # For IPv6 we must split on the *last* hyphen so that the address
-    # portion (which contains colons but no hyphens) stays intact.
+    start_ip, end_ip = _parse_range_bounds(entry)
+    return list(ip_range_to_list(start_ip, end_ip))
+
+
+def _parse_range_bounds(entry: str) -> Tuple[IPAddress, IPAddress]:
+    """Return the (start, end) addresses of a hyphenated range entry."""
     if _is_ipv6(entry):
-        return _parse_ipv6_range(entry)
-    return _parse_ipv4_range(entry)
+        return _ipv6_range_bounds(entry)
+    return _ipv4_range_bounds(entry)
 
 
-def _parse_ipv4_range(entry: str) -> List[ipaddress.IPv4Address]:
-    """Parse an IPv4 range like ``192.168.1.1-10`` or ``192.168.1.1-192.168.1.10``."""
+def _ipv4_range_bounds(entry: str) -> Tuple[ipaddress.IPv4Address, ipaddress.IPv4Address]:
+    """Bounds of an IPv4 range like ``192.168.1.1-10`` or ``192.168.1.1-192.168.1.10``."""
     start_str, end_str = entry.split('-')
     start_ip = ipaddress.IPv4Address(start_str.strip())
 
@@ -117,12 +166,11 @@ def _parse_ipv4_range(entry: str) -> List[ipaddress.IPv4Address]:
     if '.' not in end_str:
         end_str = start_ip.exploded.rsplit('.', 1)[0] + '.' + end_str.strip()
 
-    end_ip = ipaddress.IPv4Address(end_str.strip())
-    return list(ip_range_to_list(start_ip, end_ip))
+    return start_ip, ipaddress.IPv4Address(end_str.strip())
 
 
-def _parse_ipv6_range(entry: str) -> List[ipaddress.IPv6Address]:
-    """Parse an IPv6 range like ``fd00::1-fd00::ff`` or ``fd00::1-ff``."""
+def _ipv6_range_bounds(entry: str) -> Tuple[ipaddress.IPv6Address, ipaddress.IPv6Address]:
+    """Bounds of an IPv6 range like ``fd00::1-fd00::ff`` or ``fd00::1-ff``."""
     # Split on the last hyphen so addresses with ``::`` remain intact.
     idx = entry.rfind('-')
     start_str = entry[:idx].strip()
@@ -135,8 +183,7 @@ def _parse_ipv6_range(entry: str) -> List[ipaddress.IPv6Address]:
         prefix = start_ip.exploded.rsplit(':', 1)[0]
         end_str = f"{prefix}:{int(end_str, 16):04x}"
 
-    end_ip = ipaddress.IPv6Address(end_str)
-    return list(ip_range_to_list(start_ip, end_ip))
+    return start_ip, ipaddress.IPv6Address(end_str)
 
 
 def ip_range_to_list(

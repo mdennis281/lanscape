@@ -12,7 +12,7 @@ import psutil
 from scapy.error import Scapy_Exception
 
 from lanscape.core.decorators import run_once
-from lanscape.core.ip_parser import get_address_count, parse_ip_input
+from lanscape.core.ip_parser import get_address_count, parse_ip_input, parse_ip_networks
 from lanscape.core.scan_config import ScanType
 from lanscape.core.system_compat import (
     get_primary_interface,
@@ -272,47 +272,41 @@ def is_arp_supported() -> bool:
 
 
 def is_ipv6_subnet(subnet: str) -> bool:
-    """Return True if *subnet* is an IPv6 address, network, or range."""
+    """Return True if every entry in *subnet* is IPv6.
+
+    Accepts the same target formats as :func:`parse_ip_input` (CIDR, ranges,
+    single addresses, comma-separated lists). A mixed IPv4/IPv6 list is not
+    IPv6-only, so it returns False.
+    """
     try:
-        return isinstance(
-            ipaddress.ip_network(subnet, strict=False),
-            ipaddress.IPv6Network,
-        )
+        networks = parse_ip_networks(subnet)
     except ValueError:
         return ':' in subnet.split('/')[0]
+    return bool(networks) and all(n.version == 6 for n in networks)
 
 
 def is_local_subnet(subnet: str) -> bool:
-    """Return True if *subnet* overlaps with any interface on this machine."""
-    try:
-        target = ipaddress.ip_network(subnet, strict=False)
-    except ValueError:
-        return False
-
-    for entry in get_all_network_subnets():
-        try:
-            iface_net = ipaddress.ip_network(entry['subnet'], strict=False)
-            if target.overlaps(iface_net):
-                return True
-        except ValueError:
-            continue
-    return False
+    """Return True if any part of *subnet* overlaps an interface on this machine."""
+    return matching_interface(subnet) is not None
 
 
 def matching_interface(subnet: str) -> str | None:
-    """Return the name of the first interface whose subnet overlaps *subnet*."""
+    """Return the name of the first interface whose subnet overlaps *subnet*.
+
+    Accepts the same target formats as :func:`parse_ip_input`.
+    """
     try:
-        target = ipaddress.ip_network(subnet, strict=False)
+        targets = parse_ip_networks(subnet)
     except ValueError:
         return None
 
     for entry in get_all_network_subnets():
         try:
             iface_net = ipaddress.ip_network(entry['subnet'], strict=False)
-            if target.overlaps(iface_net):
-                return entry.get('interface')
         except ValueError:
             continue
+        if any(t.version == iface_net.version and t.overlaps(iface_net) for t in targets):
+            return entry.get('interface')
     return None
 
 
