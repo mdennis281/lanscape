@@ -21,10 +21,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install lanscape from PyPI
-# Use explicit version when provided; fall back to latest for local builds
+# Use explicit version when provided; fall back to latest for local builds.
+# A pinned VERSION is retried: right after a release, PyPI's CDN can serve
+# this container a stale index that lacks the new version even though the
+# publish workflow's availability check on the runner already sees it.
 ARG VERSION
 RUN if [ -n "$VERSION" ]; then \
-        pip install --no-cache-dir "lanscape==${VERSION}"; \
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do \
+            pip install --no-cache-dir "lanscape==${VERSION}" && exit 0; \
+            echo "lanscape==${VERSION} not resolvable yet (attempt ${attempt}/10), retrying in 30s"; \
+            sleep 30; \
+        done; \
+        exit 1; \
     else \
         pip install --no-cache-dir lanscape; \
     fi
