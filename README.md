@@ -34,14 +34,18 @@ Health:
 
 ---
 
-![LANscape UI](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-ui-main.jpg)
+![LANscape UI](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-ui-main.png)
+
+Works on phones too: device cards, bottom sheets, and long-press menus (installable as a PWA).
+
+![LANscape on mobile](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-mobile.png)
 
 <details>
 <summary>More screenshots</summary>
 
 ![Scan Configuration](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-config.png)
 
-![Port Detail](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-port-detail.jpg)
+![Port Detail](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-port-detail.png)
 
 </details>
 
