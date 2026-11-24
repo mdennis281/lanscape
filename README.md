@@ -36,16 +36,16 @@ Health:
 
 ![LANscape UI](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-ui-main.png)
 
-Fully responsive: device cards, bottom sheets, and long-press menus on smaller screens.
-
-![LANscape on mobile](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-mobile.png)
-
 <details>
 <summary>More screenshots</summary>
 
 ![Scan Configuration](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-config.png)
 
 ![Port Detail](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-port-detail.png)
+
+Fully responsive: device cards, bottom sheets, and long-press menus on smaller screens.
+
+![LANscape on mobile](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-mobile.png)
 
 </details>
 
