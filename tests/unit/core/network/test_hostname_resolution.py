@@ -125,6 +125,22 @@ class TestGetHostname:
 
     NO_RETRY = HostnameConfig(retries=0)
 
+    @pytest.fixture(autouse=True)
+    def _no_system_resolvers(self):
+        """Stub the system-command resolvers so the host's DNS can't leak in.
+
+        Without this, getent/host/etc. run for real between the mocked
+        steps, and a runner whose resolver answers PTR for private IPs
+        (e.g. cloud VPC DNS) returns its own hostname first.
+        """
+        module = 'lanscape.core.net_tools.device'
+        with patch(f'{module}.resolve_hostname_getent', return_value=None), \
+                patch(f'{module}.resolve_hostname_avahi', return_value=None), \
+                patch(f'{module}.resolve_hostname_dnssd', return_value=None), \
+                patch(f'{module}.resolve_hostname_host_cmd', return_value=None), \
+                patch(f'{module}.resolve_hostname_llmnr', return_value=None):
+            yield
+
     @pytest.fixture
     def device(self):
         """Create a test Device instance."""
