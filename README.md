@@ -36,7 +36,7 @@ Health:
 
 ![LANscape UI](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-ui-main.png)
 
-Works on phones too: device cards, bottom sheets, and long-press menus (installable as a PWA).
+Fully responsive: device cards, bottom sheets, and long-press menus on smaller screens.
 
 ![LANscape on mobile](https://github.com/mdennis281/LANscape/raw/main/docs/img/lanscape-mobile.png)
 
