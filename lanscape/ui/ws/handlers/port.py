@@ -12,6 +12,14 @@ from typing import Any, Callable, Optional
 from lanscape.core.port_manager import PortManager
 from lanscape.ui.ws.handlers.base import BaseHandler
 
+_INVALID_NAME_MSG = (
+    "Invalid port list name '{name}'. Use 1-64 letters, digits, '_' or '-'."
+)
+_INVALID_PORTS_MSG = (
+    "Invalid port data: expected a non-empty mapping of port numbers "
+    "(0-65535) to service name strings."
+)
+
 
 class PortHandler(BaseHandler):
     """
@@ -115,13 +123,15 @@ class PortHandler(BaseHandler):
         name = self._get_param(params, 'name', required=True)
         ports = self._get_param(params, 'ports', required=True)
 
-        success = self._port_manager.create_port_list(name, ports)
+        if not PortManager.is_valid_name(name):
+            raise ValueError(_INVALID_NAME_MSG.format(name=name))
+        if name in self._port_manager.get_port_lists():
+            raise ValueError(f"Port list '{name}' already exists.")
+        if not self._port_manager.validate_port_data(ports):
+            raise ValueError(_INVALID_PORTS_MSG)
 
-        if not success:
-            raise ValueError(
-                f"Failed to create port list '{name}'. "
-                "It may already exist or have invalid port data."
-            )
+        if not self._port_manager.create_port_list(name, ports):
+            raise ValueError(f"Failed to create port list '{name}'.")
 
         return {'success': True, 'name': name}
 
@@ -143,13 +153,13 @@ class PortHandler(BaseHandler):
         name = self._get_param(params, 'name', required=True)
         ports = self._get_param(params, 'ports', required=True)
 
-        success = self._port_manager.update_port_list(name, ports)
+        if name not in self._port_manager.get_port_lists():
+            raise ValueError(f"Port list '{name}' does not exist.")
+        if not self._port_manager.validate_port_data(ports):
+            raise ValueError(_INVALID_PORTS_MSG)
 
-        if not success:
-            raise ValueError(
-                f"Failed to update port list '{name}'. "
-                "It may not exist or have invalid port data."
-            )
+        if not self._port_manager.update_port_list(name, ports):
+            raise ValueError(f"Failed to update port list '{name}'.")
 
         return {'success': True, 'name': name}
 

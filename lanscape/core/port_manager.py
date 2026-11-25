@@ -1,13 +1,18 @@
 """Port list CRUD operations (stored as JSON files)."""
 
 import json
-from typing import List
+import re
+from typing import Dict, List, Tuple
 
 from pydantic import BaseModel, Field
 
 from .app_scope import ResourceManager
 
 PORT_DIR = 'ports'
+
+# Port list names become file names, so keep them to a safe character set:
+# no path separators, no dots, nothing that could escape the ports directory.
+_PORT_LIST_NAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 
 
 class PortListSummary(BaseModel):
@@ -22,6 +27,24 @@ class PortManager:
     def __init__(self):
         """Initialize the PortManager over the packaged ports resource directory."""
         self.rm = ResourceManager(PORT_DIR)
+        # name -> (mtime_ns, size, port count); avoids re-parsing large lists
+        self._count_cache: Dict[str, Tuple[int, int, int]] = {}
+
+    @staticmethod
+    def is_valid_name(port_list: str) -> bool:
+        """
+        Check whether *port_list* is an acceptable port list name.
+
+        Names may contain only letters, digits, ``_`` and ``-`` (1-64 chars),
+        which keeps them safe to use as file names.
+
+        Args:
+            port_list (str): Candidate port list name
+
+        Returns:
+            bool: True if the name is valid
+        """
+        return isinstance(port_list, str) and bool(_PORT_LIST_NAME_RE.match(port_list))
 
     def get_port_lists(self) -> List[str]:
         """
@@ -43,10 +66,21 @@ class PortManager:
             List[PortListSummary]: One summary per port list, ordered by size
         """
         summaries = [
-            PortListSummary(name=name, count=len(self.get_port_list(name) or {}))
+            PortListSummary(name=name, count=self._port_count(name))
             for name in self.get_port_lists()
         ]
         return sorted(summaries, key=lambda s: (s.count, s.name))
+
+    def _port_count(self, port_list: str) -> int:
+        """Return the number of ports in *port_list*, cached until the file changes."""
+        stat = (self.rm.asset_dir / f'{port_list}.json').stat()
+        cached = self._count_cache.get(port_list)
+        if cached and cached[:2] == (stat.st_mtime_ns, stat.st_size):
+            return cached[2]
+
+        count = len(self.get_port_list(port_list) or {})
+        self._count_cache[port_list] = (stat.st_mtime_ns, stat.st_size, count)
+        return count
 
     def get_port_list(self, port_list: str) -> dict | None:
         """
@@ -80,8 +114,12 @@ class PortManager:
             data (dict): Dictionary mapping port numbers to service names
 
         Returns:
-            bool: True if creation was successful, False otherwise
+            bool: True if creation was successful, False if the name is
+            invalid (see :meth:`is_valid_name`), the list already exists,
+            or the port data is invalid
         """
+        if not self.is_valid_name(port_list):
+            return False
         if port_list in self.get_port_lists():
             return False
         if not self.validate_port_data(data):
@@ -133,6 +171,7 @@ class PortManager:
         Validate port data structure and content.
 
         Ensures that:
+        - It is a non-empty dictionary
         - Keys can be converted to integers
         - Values are strings
         - Port numbers are within valid range (0-65535)
@@ -143,6 +182,8 @@ class PortManager:
         Returns:
             bool: True if data is valid, False otherwise
         """
+        if not isinstance(port_data, dict) or not port_data:
+            return False
         try:
             for port, service in port_data.items():
                 port = int(port)  # throws if not int
