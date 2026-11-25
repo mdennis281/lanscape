@@ -11,6 +11,7 @@ from lanscape import (
     ScanMetadata, ScanResults, ScanSummary,
     DeviceStage, ScanStage, StageType, StageProgress,
     StageEvalContext, WarningCategory,
+    PortListSummary,
 )
 ```
 
@@ -265,4 +266,17 @@ Environment context used by stage guards to decide whether a stage should run or
 | `arp_supported` | `bool` | Whether the system supports ARP |
 | `os_platform` | `str` | Normalised OS: `"windows"`, `"linux"`, or `"darwin"` |
 
+---
 
+## Port Models
+
+### PortListSummary
+
+`lanscape.PortListSummary`
+
+A port list's name and size, returned by `PortManager.get_port_list_summaries()`. See [PortManager — PortListSummary](../port-manager.md#portlistsummary) for details.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `str` | Port list name (without the `.json` extension) |
+| `count` | `int` | Number of ports in the list |

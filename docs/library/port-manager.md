@@ -2,12 +2,12 @@
 
 `lanscape.PortManager`
 
-CRUD manager for port list configurations. Port lists are stored as JSON files on disk, mapping port numbers to service names. The scanner uses these lists to determine which ports to test on each device.
+CRUD manager for port list configurations. Port lists are stored as JSON files in the packaged `lanscape/resources/ports/` directory, mapping port numbers to service names. The scanner uses these lists to determine which ports to test on each device.
 
 ## Import
 
 ```python
-from lanscape import PortManager
+from lanscape import PortManager, PortListSummary
 ```
 
 ## Constructor
@@ -16,35 +16,58 @@ from lanscape import PortManager
 pm = PortManager()
 ```
 
-Creates the port storage directory (`ports/`) if it doesn't exist and initializes an internal `ResourceManager` for file I/O.
+Initializes an internal `ResourceManager` over the packaged `lanscape/resources/ports/` directory. Nothing is created on disk — in particular, no `ports/` directory is made in the current working directory. Lists created, updated or deleted through this class are written to that packaged directory, so they live inside the installed `lanscape` package.
 
 ## Built-in Port Lists
 
-LANscape ships with several built-in port lists:
+LANscape ships with four built-in port lists:
 
-| Name | Description |
-|------|-------------|
-| `small` | ~20 common ports (HTTP, SSH, DNS, etc.) |
-| `medium` | ~100 well-known ports |
-| `large` | ~1000+ ports for thorough scanning |
+| Name | Ports | Description |
+|------|-------|-------------|
+| `small` | 20 | Common ports (HTTP, SSH, DNS, etc.) |
+| `medium` | 148 | Well-known ports |
+| `large` | 6085 | Broad coverage for thorough scanning |
+| `full` | 65535 | Every port from 1 to 65535 |
 
 ## Methods
 
 ### `get_port_lists() -> List[str]`
 
-List all available port list names.
+List all available port list names, sorted alphabetically.
 
 **Returns:** `List[str]` — names without the `.json` extension.
 
 ```python
 pm = PortManager()
 print(pm.get_port_lists())
-# ['small', 'medium', 'large', 'custom']
+# ['full', 'large', 'medium', 'small']
 ```
+
+To order lists by size instead, use [`get_port_list_summaries()`](#get_port_list_summaries---listportlistsummary).
 
 ---
 
-### `get_port_list(port_list: str) -> dict`
+### `get_port_list_summaries() -> List[PortListSummary]`
+
+List every port list with its port count, smallest list first. Lists with the same count are ordered by name. A list whose stored data fails [validation](#validate_port_dataport_data-dict---bool) is reported with a count of `0`.
+
+**Returns:** `List[PortListSummary]` — one [`PortListSummary`](#portlistsummary) per port list, ordered by size.
+
+```python
+pm = PortManager()
+for summary in pm.get_port_list_summaries():
+    print(summary.name, summary.count)
+# small 20
+# medium 148
+# large 6085
+# full 65535
+```
+
+This is the ordering the WebSocket [`port.list_summary`](websocket-server.md#portlist_summary) action returns.
+
+---
+
+### `get_port_list(port_list: str) -> dict | None`
 
 Retrieve a port list by name.
 
@@ -52,7 +75,7 @@ Retrieve a port list by name.
 |-----------|------|-------------|
 | `port_list` | `str` | Name of the port list |
 
-**Returns:** `dict` — mapping of port number (as string key) to service name.
+**Returns:** `dict | None` — mapping of port number (as string key) to service name, or `None` if the stored data fails [validation](#validate_port_dataport_data-dict---bool).
 
 **Raises:** `ValueError` if the port list does not exist.
 
@@ -124,6 +147,23 @@ Validate port data structure and content.
 - Keys must be convertible to `int`
 - Values must be `str`
 - Port numbers must be in range 0–65535
+
+## PortListSummary
+
+`lanscape.PortListSummary`
+
+Pydantic model returned by [`get_port_list_summaries()`](#get_port_list_summaries---listportlistsummary).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `str` | Port list name (without the `.json` extension) |
+| `count` | `int` | Number of ports in the list (`0` if the list's data is invalid) |
+
+```python
+summary = PortManager().get_port_list_summaries()[0]
+print(summary.model_dump())
+# {'name': 'small', 'count': 20}
+```
 
 ## Example: Custom Port List with ScanConfig
 
