@@ -127,7 +127,7 @@ class PortHandler(BaseHandler):
             raise ValueError(_INVALID_NAME_MSG.format(name=name))
         if name in self._port_manager.get_port_lists():
             raise ValueError(f"Port list '{name}' already exists.")
-        if not self._port_manager.validate_port_data(ports):
+        if not ports or not self._port_manager.validate_port_data(ports):
             raise ValueError(_INVALID_PORTS_MSG)
 
         if not self._port_manager.create_port_list(name, ports):
@@ -155,7 +155,7 @@ class PortHandler(BaseHandler):
 
         if name not in self._port_manager.get_port_lists():
             raise ValueError(f"Port list '{name}' does not exist.")
-        if not self._port_manager.validate_port_data(ports):
+        if not ports or not self._port_manager.validate_port_data(ports):
             raise ValueError(_INVALID_PORTS_MSG)
 
         if not self._port_manager.update_port_list(name, ports):

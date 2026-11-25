@@ -124,3 +124,18 @@ def test_summaries_do_not_reparse_unchanged_lists(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(pm, 'get_port_list', _fail)
     assert [s.name for s in pm.get_port_list_summaries()][-1] == 'full'
+
+
+def test_existing_empty_list_still_readable(port_dir: Path) -> None:
+    """An empty list saved by an older version reads back as {} rather than None."""
+    (port_dir / 'empty.json').write_text('{}', encoding='utf-8')
+    pm = PortManager()
+
+    assert pm.get_port_list('empty') == {}
+    assert {s.name: s.count for s in pm.get_port_list_summaries()}['empty'] == 0
+
+
+@pytest.mark.usefixtures('port_dir')
+def test_update_rejects_empty_data() -> None:
+    """Updating a list to empty is refused."""
+    assert PortManager().update_port_list('small', {}) is False

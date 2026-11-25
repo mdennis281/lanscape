@@ -238,7 +238,7 @@ class TestPortHandler:
         with pytest.raises(ValueError, match="Failed to create"):
             port_handler.invoke(
                 "create",
-                {"name": "invalid", "ports": {}},
+                {"name": "invalid", "ports": {"22": "ssh"}},
             )
 
     def test_handle_delete(self, port_handler, mock_port_manager):

@@ -122,7 +122,7 @@ class PortManager:
             return False
         if port_list in self.get_port_lists():
             return False
-        if not self.validate_port_data(data):
+        if not data or not self.validate_port_data(data):
             return False
 
         self.rm.create(f'{port_list}.json', json.dumps(data, indent=2))
@@ -142,7 +142,7 @@ class PortManager:
         """
         if port_list not in self.get_port_lists():
             return False
-        if not self.validate_port_data(data):
+        if not data or not self.validate_port_data(data):
             return False
 
         self.rm.update(f'{port_list}.json', json.dumps(data, indent=2))
@@ -171,7 +171,8 @@ class PortManager:
         Validate port data structure and content.
 
         Ensures that:
-        - It is a non-empty dictionary
+        - It is a dictionary (an empty one is valid on read; create and
+          update additionally require at least one port)
         - Keys can be converted to integers
         - Values are strings
         - Port numbers are within valid range (0-65535)
@@ -182,7 +183,7 @@ class PortManager:
         Returns:
             bool: True if data is valid, False otherwise
         """
-        if not isinstance(port_data, dict) or not port_data:
+        if not isinstance(port_data, dict):
             return False
         try:
             for port, service in port_data.items():

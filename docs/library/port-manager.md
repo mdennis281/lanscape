@@ -166,7 +166,7 @@ Validate port data structure and content.
 **Returns:** `bool` — `True` if valid.
 
 **Validation rules:**
-- Must be a non-empty `dict` — an empty mapping is invalid
+- Must be a `dict`. An empty mapping passes here, so existing empty lists still load, but `create_port_list` and `update_port_list` reject empty data
 - Keys must be convertible to `int`
 - Values must be `str`
 - Port numbers must be in range 0–65535
