@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
 import websockets
 
+from lanscape.core.port_manager import PortListSummary
 from lanscape.core.runtime_args import RuntimeArgs
 from lanscape.core.scan_config import ScanType
 from lanscape.ui.ws.handlers.scan import ScanHandler
@@ -196,19 +197,17 @@ class TestPortHandler:
 
     def test_handle_list_summary(self, port_handler, mock_port_manager):
         """Test listing port lists with counts."""
-        mock_port_manager.get_port_lists.return_value = ["small", "medium"]
-        mock_port_manager.get_port_list.side_effect = [
-            {"22": "ssh", "80": "http"},
-            {"22": "ssh", "80": "http", "443": "https", "8080": "http-alt"}
+        mock_port_manager.get_port_list_summaries.return_value = [
+            PortListSummary(name="small", count=2),
+            PortListSummary(name="medium", count=4),
         ]
 
         result = port_handler.invoke("list_summary")
 
-        assert len(result) == 2
-        assert result[0]["name"] == "small"
-        assert result[0]["count"] == 2
-        assert result[1]["name"] == "medium"
-        assert result[1]["count"] == 4
+        assert result == [
+            {"name": "small", "count": 2},
+            {"name": "medium", "count": 4},
+        ]
 
     def test_handle_get(self, port_handler, mock_port_manager):
         """Test getting a port list."""
@@ -239,7 +238,7 @@ class TestPortHandler:
         with pytest.raises(ValueError, match="Failed to create"):
             port_handler.invoke(
                 "create",
-                {"name": "invalid", "ports": {}},
+                {"name": "invalid", "ports": {"22": "ssh"}},
             )
 
     def test_handle_delete(self, port_handler, mock_port_manager):

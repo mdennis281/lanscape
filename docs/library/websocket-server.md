@@ -151,7 +151,7 @@ Start a new network scan (non-blocking). Accepts either legacy [ScanConfig](conf
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `subnet` | `string` | yes | Target subnet — IPv4 or IPv6 (e.g. `"192.168.1.0/24"`, `"fd00::/120"`, `"fd00::1-fd00::ff"`) |
-| `port_list` | `string` | no | Port list name (`"small"`, `"medium"`, `"large"`, or custom) |
+| `port_list` | `string` | no | Port list name (`"small"`, `"medium"`, `"large"`, `"full"`, or custom) |
 | `lookup_type` | `string[]` | no | Discovery methods (e.g. `["ICMP_THEN_ARP"]`) |
 | `t_multiplier` | `int` | no | Thread multiplier |
 | `task_scan_ports` | `bool` | no | Enable port scanning |
@@ -374,21 +374,21 @@ If the port has no service info (e.g. it was open but unprobed), `responses` wil
 
 #### `port.list`
 
-Get all available port list names.
+Get all available port list names, sorted alphabetically. Use [`port.list_summary`](#portlist_summary) to get them ordered by size.
 
 **Params:** none
 
 **Response data:**
 
 ```json
-["small", "medium", "large"]
+["full", "large", "medium", "small"]
 ```
 
 ---
 
 #### `port.list_summary`
 
-Get port lists with their port counts.
+Get port lists with their port counts, ordered smallest list first (ties broken by name). A list whose stored data is invalid is reported with `count: 0`. Each entry is a dumped [`PortListSummary`](port-manager.md#portlistsummary).
 
 **Params:** none
 
@@ -396,9 +396,10 @@ Get port lists with their port counts.
 
 ```json
 [
-  { "name": "small", "count": 25 },
-  { "name": "medium", "count": 135 },
-  { "name": "large", "count": 1000 }
+  { "name": "small", "count": 20 },
+  { "name": "medium", "count": 148 },
+  { "name": "large", "count": 6085 },
+  { "name": "full", "count": 65535 }
 ]
 ```
 
@@ -426,14 +427,22 @@ Create a new port list.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | `string` | yes | Name for the new list |
-| `ports` | `object` | yes | Port-to-service mapping (e.g. `{"8080": "http-alt"}`) |
+| `name` | `string` | yes | Name for the new list — 1–64 letters, digits, `_` or `-` |
+| `ports` | `object` | yes | Non-empty port-to-service mapping (e.g. `{"8080": "http-alt"}`); ports 0–65535, service names as strings |
 
 **Response data:**
 
 ```json
 { "success": true, "name": "my-list" }
 ```
+
+**Errors:** checked in this order, each returned as an [error message](#error-server--client) with the `error` text shown:
+
+| Condition | `error` |
+|-----------|---------|
+| Invalid name | `Invalid port list name '<name>'. Use 1-64 letters, digits, '_' or '-'.` |
+| Name already taken | `Port list '<name>' already exists.` |
+| Invalid port data | `Invalid port data: expected a non-empty mapping of port numbers (0-65535) to service name strings.` |
 
 ---
 
@@ -444,13 +453,20 @@ Update an existing port list.
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | `string` | yes | Port list name |
-| `ports` | `object` | yes | New port-to-service mapping |
+| `ports` | `object` | yes | New non-empty port-to-service mapping; replaces the existing list |
 
 **Response data:**
 
 ```json
 { "success": true, "name": "my-list" }
 ```
+
+**Errors:** checked in this order, each returned as an [error message](#error-server--client):
+
+| Condition | `error` |
+|-----------|---------|
+| No list with that name | `Port list '<name>' does not exist.` |
+| Invalid port data | `Invalid port data: expected a non-empty mapping of port numbers (0-65535) to service name strings.` |
 
 ---
 

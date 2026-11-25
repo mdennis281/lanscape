@@ -37,7 +37,7 @@ from lanscape.core.auto_stages import recommend_stages, StageRecommendation
 
 from lanscape.core.models.scan import StageEvalContext
 
-from lanscape.core.port_manager import PortManager
+from lanscape.core.port_manager import PortManager, PortListSummary
 
 # Neighbor table service (centralized ARP/NDP cache)
 from lanscape.core.neighbor_table import (

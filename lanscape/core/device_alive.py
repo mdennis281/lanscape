@@ -146,7 +146,9 @@ class ArpCacheLookup():
 class ArpLookup():
     """
     Class to handle ARP lookups for device presence.
-    NOTE: This lookup method requires elevated privileges to access the ARP cache.
+    NOTE: This sends raw ARP packets via Scapy, which requires elevated
+    privileges (root, or Npcap on Windows). Reading the OS ARP cache, as the
+    ICMP+ARP and Poke+ARP stages do, does not.
     ARP is IPv4-only; IPv6 targets are skipped.
 
     [Arp Lookup Requirements](/docs/arp-issues.md)
