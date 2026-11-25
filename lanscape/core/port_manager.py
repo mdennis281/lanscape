@@ -2,35 +2,53 @@
 
 import json
 from typing import List
-from pathlib import Path
+
+from pydantic import BaseModel, Field
+
 from .app_scope import ResourceManager
 
 PORT_DIR = 'ports'
+
+
+class PortListSummary(BaseModel):
+    """A port list's name and how many ports it contains."""
+    name: str = Field(description="Port list name (without the .json extension)")
+    count: int = Field(description="Number of ports in the list")
 
 
 class PortManager:
     """CRUD manager for port list JSON files."""
 
     def __init__(self):
-        """
-        Initialize the PortManager.
-
-        Creates the ports directory if it doesn't exist and initializes
-        the ResourceManager for file operations.
-        """
-        Path(PORT_DIR).mkdir(parents=True, exist_ok=True)
+        """Initialize the PortManager over the packaged ports resource directory."""
         self.rm = ResourceManager(PORT_DIR)
 
     def get_port_lists(self) -> List[str]:
         """
-        Get a list of all available port list names.
+        Get a list of all available port list names, sorted alphabetically.
 
         Returns:
             List[str]: Names of all available port lists (without .json extension)
         """
-        return [f.replace('.json', '') for f in self.rm.list() if f.endswith('.json')]
+        return sorted(f.removesuffix('.json') for f in self.rm.list() if f.endswith('.json'))
 
-    def get_port_list(self, port_list: str) -> dict:
+    def get_port_list_summaries(self) -> List[PortListSummary]:
+        """
+        Get every port list with its port count, smallest list first.
+
+        Lists with the same count are ordered by name. A list whose data
+        fails validation is reported with a count of 0.
+
+        Returns:
+            List[PortListSummary]: One summary per port list, ordered by size
+        """
+        summaries = [
+            PortListSummary(name=name, count=len(self.get_port_list(name) or {}))
+            for name in self.get_port_lists()
+        ]
+        return sorted(summaries, key=lambda s: (s.count, s.name))
+
+    def get_port_list(self, port_list: str) -> dict | None:
         """
         Retrieve a port list by name.
 
@@ -38,7 +56,8 @@ class PortManager:
             port_list (str): The name of the port list to retrieve
 
         Returns:
-            dict: A dictionary of port numbers to service names
+            dict | None: A dictionary of port numbers to service names,
+            or None if the stored data fails validation
 
         Raises:
             ValueError: If the specified port list does not exist
@@ -133,5 +152,5 @@ class PortManager:
                 if not 0 <= port <= 65535:
                     return False
             return True
-        except BaseException:
+        except (ValueError, TypeError, AttributeError):
             return False

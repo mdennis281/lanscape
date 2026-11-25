@@ -71,16 +71,9 @@ class PortHandler(BaseHandler):
         Get port list names with their port counts.
 
         Returns:
-            List of dicts with 'name' and 'count' keys
+            List of dicts with 'name' and 'count' keys, smallest list first
         """
-        summaries = []
-        for name in self._port_manager.get_port_lists():
-            ports = self._port_manager.get_port_list(name) or {}
-            summaries.append({
-                'name': name,
-                'count': len(ports)
-            })
-        return summaries
+        return [s.model_dump() for s in self._port_manager.get_port_list_summaries()]
 
     def _handle_get(
         self,
