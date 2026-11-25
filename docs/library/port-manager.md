@@ -65,6 +65,8 @@ for summary in pm.get_port_list_summaries():
 
 This is the ordering the WebSocket [`port.list_summary`](websocket-server.md#portlist_summary) action returns.
 
+Counts are cached per `PortManager` instance, keyed on each file's modification time and size, so repeated calls do not re-parse large lists such as `full`. A list that is edited on disk is re-counted on the next call.
+
 ---
 
 ### `get_port_list(port_list: str) -> dict | None`
@@ -86,16 +88,36 @@ ports = pm.get_port_list("small")
 
 ---
 
+### `is_valid_name(port_list: str) -> bool`
+
+*Static method.* Check whether a string is an acceptable port list name. Names become file names, so they are limited to **1–64 characters** drawn from letters, digits, `_` and `-` — no spaces, dots or path separators.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `port_list` | `str` | Candidate port list name |
+
+**Returns:** `bool` — `True` if the name is valid. Non-string input returns `False`.
+
+```python
+PortManager.is_valid_name("web-servers")  # True
+PortManager.is_valid_name("my_list_2")    # True
+PortManager.is_valid_name("my list")      # False (space)
+PortManager.is_valid_name("../x")         # False (dots and slash)
+PortManager.is_valid_name("")             # False (empty)
+```
+
+---
+
 ### `create_port_list(port_list: str, data: dict) -> bool`
 
 Create a new port list.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `port_list` | `str` | Name for the new port list |
+| `port_list` | `str` | Name for the new port list (see [`is_valid_name()`](#is_valid_nameport_list-str---bool)) |
 | `data` | `dict` | Mapping of port numbers to service names |
 
-**Returns:** `bool` — `True` if created successfully, `False` if the name already exists or data is invalid.
+**Returns:** `bool` — `True` if created successfully, `False` if the name is invalid, a list with that name already exists, or the data is [invalid](#validate_port_dataport_data-dict---bool).
 
 ```python
 custom_ports = {
@@ -144,6 +166,7 @@ Validate port data structure and content.
 **Returns:** `bool` — `True` if valid.
 
 **Validation rules:**
+- Must be a non-empty `dict` — an empty mapping is invalid
 - Keys must be convertible to `int`
 - Values must be `str`
 - Port numbers must be in range 0–65535

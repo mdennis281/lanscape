@@ -427,14 +427,22 @@ Create a new port list.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | `string` | yes | Name for the new list |
-| `ports` | `object` | yes | Port-to-service mapping (e.g. `{"8080": "http-alt"}`) |
+| `name` | `string` | yes | Name for the new list — 1–64 letters, digits, `_` or `-` |
+| `ports` | `object` | yes | Non-empty port-to-service mapping (e.g. `{"8080": "http-alt"}`); ports 0–65535, service names as strings |
 
 **Response data:**
 
 ```json
 { "success": true, "name": "my-list" }
 ```
+
+**Errors:** checked in this order, each returned as an [error message](#error-server--client) with the `error` text shown:
+
+| Condition | `error` |
+|-----------|---------|
+| Invalid name | `Invalid port list name '<name>'. Use 1-64 letters, digits, '_' or '-'.` |
+| Name already taken | `Port list '<name>' already exists.` |
+| Invalid port data | `Invalid port data: expected a non-empty mapping of port numbers (0-65535) to service name strings.` |
 
 ---
 
@@ -445,13 +453,20 @@ Update an existing port list.
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | `string` | yes | Port list name |
-| `ports` | `object` | yes | New port-to-service mapping |
+| `ports` | `object` | yes | New non-empty port-to-service mapping; replaces the existing list |
 
 **Response data:**
 
 ```json
 { "success": true, "name": "my-list" }
 ```
+
+**Errors:** checked in this order, each returned as an [error message](#error-server--client):
+
+| Condition | `error` |
+|-----------|---------|
+| No list with that name | `Port list '<name>' does not exist.` |
+| Invalid port data | `Invalid port data: expected a non-empty mapping of port numbers (0-65535) to service name strings.` |
 
 ---
 

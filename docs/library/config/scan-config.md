@@ -44,7 +44,7 @@ ScanConfig(
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `subnet` | `str` | *required* | Target subnet in CIDR, range, or comma-separated format. Supports both IPv4 and IPv6 (e.g., `"192.168.1.0/24"`, `"fd00::/120"`, `"10.0.0.1-10.0.0.50"`, `"fd00::1-fd00::ff"`, `"1.1.1.1,fd00::1"`) |
-| `port_list` | `str` | *required* | Name of the port list to use (e.g., `"small"`, `"medium"`, `"large"`). Must exist in `PortManager`. |
+| `port_list` | `str` | *required* | Name of the port list to use (e.g., `"small"`, `"medium"`, `"large"`, `"full"`). Must exist in `PortManager`. |
 
 ### Threading
 
